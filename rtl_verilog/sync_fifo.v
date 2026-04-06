@@ -1,6 +1,8 @@
 // Synchronous FIFO with parameterizable depth and width
 // Single clock domain, registered outputs
 
+`timescale 1ns/1ps
+
 module sync_fifo #(
   parameter DATA_WIDTH = 32,
   parameter FIFO_DEPTH = 16,
@@ -20,7 +22,7 @@ module sync_fifo #(
 
   // Read Interface
   input  wire                     rd_en_i,
-  output wire [DATA_WIDTH-1:0]    rd_data_o,
+  output reg [DATA_WIDTH-1:0]     rd_data_o,
   output wire                     empty_o,
   output wire                     almost_empty_o,
 
@@ -51,27 +53,56 @@ module sync_fifo #(
     if (MEMORY_TYPE == "BRAM") begin
       // Xilinx attribute for block RAM inference
       (* ram_style = "block" *) reg [DATA_WIDTH-1:0] memory [0:FIFO_DEPTH-1];
+      // Initialize memory (simulation only)
+      // synthesis translate_off
+      integer i;
+      initial begin
+        for (i = 0; i < FIFO_DEPTH; i = i + 1) begin
+          memory[i] = {DATA_WIDTH{1'b0}};
+        end
+      end
+      // synthesis translate_on
+      // Memory write process
+      always @(posedge clk_i) begin
+        if (wr_en_valid) begin
+          memory[wr_ptr] <= wr_data_i;
+        end
+      end
+      // Memory read process (synchronous read)
+      always @(posedge clk_i) begin
+        rd_data_o <= memory[rd_ptr];
+      end
     end else begin
       // Register-based (distributed RAM or registers)
       reg [DATA_WIDTH-1:0] memory [0:FIFO_DEPTH-1];
+      // Initialize memory (simulation only)
+      // synthesis translate_off
+      integer i;
+      initial begin
+        for (i = 0; i < FIFO_DEPTH; i = i + 1) begin
+          memory[i] = {DATA_WIDTH{1'b0}};
+        end
+      end
+      // synthesis translate_on
+      // Memory write process
+      always @(posedge clk_i) begin
+        if (wr_en_valid) begin
+          memory[wr_ptr] <= wr_data_i;
+        end
+      end
+      // Memory read process (synchronous read)
+      always @(posedge clk_i) begin
+        rd_data_o <= memory[rd_ptr];
+      end
     end
   endgenerate
-
-  // Initialize memory (simulation only)
-  // synthesis translate_off
-  integer i;
-  initial begin
-    for (i = 0; i < FIFO_DEPTH; i = i + 1) begin
-      memory[i] = {DATA_WIDTH{1'b0}};
-    end
-  end
-  // synthesis translate_on
 
   // Write and read enable validation (cannot write when full, read when empty)
   assign wr_en_valid = wr_en_i && !full_o;
   assign rd_en_valid = rd_en_i && !empty_o;
 
   // Pointer update logic with modulo wrap
+  /* verilator lint_off WIDTHEXPAND */
   always @(*) begin
     wr_ptr_next = wr_ptr;
     rd_ptr_next = rd_ptr;
@@ -90,6 +121,7 @@ module sync_fifo #(
         rd_ptr_next = rd_ptr + 1;
     end
   end
+  /* verilator lint_on WIDTHEXPAND */
 
   // FIFO count logic
   always @(*) begin
@@ -130,17 +162,6 @@ module sync_fifo #(
     end
   end
 
-  // Memory write process
-  always @(posedge clk_i) begin
-    if (wr_en_valid) begin
-      memory[wr_ptr] <= wr_data_i;
-    end
-  end
-
-  // Memory read process (synchronous read)
-  always @(posedge clk_i) begin
-    rd_data_o <= memory[rd_ptr];
-  end
 
 
 endmodule

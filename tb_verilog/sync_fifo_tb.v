@@ -78,6 +78,11 @@ module sync_fifo_tb;
     $display("  MEMORY_TYPE = %s", MEMORY_TYPE);
     $display("=========================================");
 
+    // Setup VCD waveform dumping
+    $dumpfile("sync_fifo_waveform.vcd");
+    $dumpvars(0, sync_fifo_tb);
+    $display("[%0t] VCD waveform dump enabled: sync_fifo_waveform.vcd", $time);
+
     // Apply reset
     apply_reset();
 
